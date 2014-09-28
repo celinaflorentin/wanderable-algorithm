@@ -6,6 +6,8 @@
 #include <sstream>
 #include <cstdlib>
 #include <cmath>
+#include <vector>
+#include <limits>
 #include <iomanip>
 
 using namespace std;
@@ -15,6 +17,7 @@ typedef struct {
 	int id;
 	double latitude; // y
 	double longitude; // x
+	double dist;
 } coord;
 
 
@@ -42,20 +45,42 @@ double distance(double in_lat, double in_long, double line_lat, double line_long
 }
 
 
-int main(int argc, const char * argv[]) {
+// remove a point from the coordinate vector given a specified distance value
+void replace_coord(double dist, coord c, vector<coord> &coords) {
+	for (vector<coord>::iterator i = coords.begin(); i != coords.end(); i++) {
+		double distance = i->dist;
+		if (distance == dist) {
+			// replace old coord with new coord
+			cout << "no more id " << i->id << " | added id " << c.id << endl;
+			i->id = c.id;
+			i->latitude = c.latitude;
+			i->longitude = c.longitude;
+			i->dist = c.dist;
+		}
+	}
+}
 
-	double in_lat, in_long;
-	double line_lat, line_long;
+
+int main(int argc, const char * argv[]) {
+	int items = 0;
+	double in_lat, in_long, line_lat, line_long;
 	int line_id;
-	vector
+
+	// keep track of number of coordinates closest to point currently
+	// only keep top 10
+	int closest_count = 0;
+
+	// store all coordinates in a vector
+	vector<coord> coordinates;
+
+	// keep track of maximum of the closest points so far. 0 at first
+	double max_closest = 0; 
 
 	cout << "Input latitude:" << endl;
 	cin >> in_lat;
-	cout << in_lat << endl;
 
 	cout << "Input longitude:" << endl;
 	cin >> in_long;
-	cout << in_long << endl;
 
 	// create input file stream using the given csv file
 	ifstream input("item_locations.csv");
@@ -67,16 +92,15 @@ int main(int argc, const char * argv[]) {
 	}
 
 	getline(input,line); // heading string; not needed
-	// cout << line << endl;
 
 	while (getline(input,line)) {
-
+		items++;
+		// cout << line << endl;
 		stringstream ss(line);
 		string s;
 
 		int i = 0;
 		while (getline(ss,s,',')) {
-
 			// convert each delimited string into a double
 			double n = atof(s.c_str());
 
@@ -92,20 +116,50 @@ int main(int argc, const char * argv[]) {
 				line_long = n;
 				i = 0;
 			}
-			// coord c1 = {line_id,line_lat,line_long};
-			// cout << setprecision(10) << c1.id << " " << c1.latitude << " " << c1.longitude << endl;				
 		}
 
-		// coord c = {line_id,line_lat,line_long};
-		// cout << c.id << " " << c.latitude << " " << c.longitude << endl;
-	}
-	cout << setprecision(10) << line_lat << " " << line_long << endl;
-	double dist1 = distance (in_lat, in_long, line_lat, line_long);
-	cout << "distance:" << setprecision(10) << dist1 << endl;
+		// compute the distance and create coord struct
+		double dist = distance (in_lat, in_long, line_lat, line_long);
 
-	// coord c = {1,2,3};
-	// cout << c.id << " " << c.latitude << " " << c.longitude << endl;
-	
+		// if this is the first point, add it to the vector
+		if (closest_count == 0) {
+			max_closest = dist;
+			closest_count++;
+			coord c = {line_id,line_lat,line_long,dist};
+			coordinates.push_back(c);
+		}
+		// automatically add coordinate into vector if closest count < 10
+		else if (closest_count < 10) {
+			max_closest = max(max_closest, dist);
+			closest_count++;
+			coord c = {line_id,line_lat,line_long,dist};
+			coordinates.push_back(c);
+		}
+		// if closest count >= 10, only add coordinate into vector if dist < max_closest
+		else {
+			if (dist < max_closest) {
+				// we are replacing the currect max_closest vector, so no need to increment closest_count
+				coord c = {line_id,line_lat,line_long,dist};
+				cout << "about to replace dist " << max_closest << " with " << c.dist << endl; 
+				replace_coord(max_closest, c, coordinates);
+				max_closest = dist;
+
+			}		
+		}
+		
+		// cout << setprecision(10) << in_lat << " " << in_long << " " << c.id << " " << c.latitude << " " << c.longitude << " " << c.dist << endl;
+		// cout << endl;
+
+	}
+
+	for (vector<coord>::iterator i = coordinates.begin(); i != coordinates.end(); i++) {
+		// double distance = i->dist;
+		// cout << distance << endl;
+		cout << i->id << endl;
+	}
+	cout << "total items parsed: " << items << endl;
+	cout << setprecision(10) << "total stuff in vector: " << closest_count << endl;
+	cout << setprecision(10) << "max of the closest: " << max_closest << endl;
     return 0;
 }
 
